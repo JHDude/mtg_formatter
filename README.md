@@ -3,8 +3,8 @@ A simple CLI program to convert DelverLens CSVs into Archidekt importable txt fi
 
 ## Input Format
 CSVs need to be formatted in the following way:
-1) Header needs to be `QuantityX,Name,Edition code,Foil`
-2) Body needs to have those parameters on each line. Example line: `"1x","Knight of the Ebon Legion","M20",""`
+1) Header needs to be `QuantityX,Name,Edition code,Foil` - *if it has a header*
+2) Body needs to have those parameters on each line, in that order. *EVEN IF IT DOESN'T HAVE A HEADER*. Example line: `"1x","Knight of the Ebon Legion","M20",""`
 
 ## To Build
 1) You need to install Cargo for your system -> https://doc.rust-lang.org/cargo/getting-started/installation.html
