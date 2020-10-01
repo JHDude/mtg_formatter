@@ -1,9 +1,9 @@
 extern crate clap;
 
 use std::error::Error;
-use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::{self, BufRead};
 use std::path::PathBuf;
 
 use clap::{App, Arg};
@@ -21,23 +21,56 @@ struct MtgRecord {
     foil: Option<String>,
 }
 
-impl fmt::Display for MtgRecord {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl MtgRecord {
+    fn archidekt_txt(&self, cmdr_name: Option<&str>) -> String {
         let foil = String::from(match self.foil {
             Some(_) => " *F*",
             _ => "",
         });
-        write!(
-            f,
-            "{} {} ({}){}",
-            self.quantity, self.name, self.edition, foil
-        )
+        match cmdr_name {
+            Some(name) => {
+                if name == self.name {
+                    format!(
+                        "{} {} ({}){} {}",
+                        self.quantity, self.name, self.edition, foil, "[Commander{top}]"
+                    )
+                } else {
+                    format!("{} {} ({}){}", self.quantity, self.name, self.edition, foil)
+                }
+            }
+            None => format!("{} {} ({}){}", self.quantity, self.name, self.edition, foil),
+        }
+    }
+}
+
+fn has_header(path: &PathBuf) -> Result<bool, Box<dyn Error>> {
+    let file = File::open(path)?;
+    let first_line = io::BufReader::new(file).lines().into_iter().next();
+    match first_line {
+        Some(x) => match x {
+            Ok(y) => {
+                if y == "QuantityX,Name,Edition code,Foil" {
+                    return Ok(true);
+                } else {
+                    return Ok(false);
+                }
+            }
+            Err(parsing_error) => return Err(Box::new(parsing_error)),
+        },
+        None => return Ok(false),
     }
 }
 
 // Function for parsing a CSV created by DelverLens, and converting it into a Vector of MtgRecords
 fn parse_csv(path: &PathBuf) -> Result<Vec<MtgRecord>, Box<dyn Error>> {
-    let mut reader = csv::Reader::from_path(path)?;
+    // let mut reader = csv::Reader::from_path(path)?;
+    let mut reader = if has_header(&path)? {
+        csv::Reader::from_path(path)?
+    } else {
+        csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_path(path)?
+    };
     let mut output = Vec::<MtgRecord>::new();
     for result in reader.deserialize() {
         let record = result?;
@@ -50,16 +83,7 @@ fn parse_csv(path: &PathBuf) -> Result<Vec<MtgRecord>, Box<dyn Error>> {
 fn format_records(records: Vec<MtgRecord>, commander_name: Option<&str>) -> Vec<String> {
     records
         .into_iter()
-        .map(|x| match commander_name {
-            Some(y) => {
-                if x.name.as_str() == y {
-                    format!("{} {}", x, "[Commander{top}]")
-                } else {
-                    format!("{}", x)
-                }
-            }
-            None => format!("{}", x),
-        })
+        .map(|x| x.archidekt_txt(commander_name))
         .collect::<Vec<String>>()
 }
 
